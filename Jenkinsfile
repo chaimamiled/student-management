@@ -2,77 +2,27 @@ pipeline {
     agent any
 
     environment {
-        APP_NAME = "student-management"
-    }
-
-    triggers {
-        // Déclenche le pipeline à chaque push Git si configuré avec webhook
-        pollSCM('* * * * *') // Vérifier chaque minute (peut être remplacé par webhook)
+        SONAR_TOKEN = credentials('squ_696d38fe068dd19f95ced8b8001eb3d575c5c099') // ton token SonarQube
     }
 
     stages {
-        stage('Hello World') {
-            steps {
-                echo '👋 Hello World'
-                sh 'date'
-            }
-        }
 
-        stage('Checkout Git') {
+        stage('Checkout') {
             steps {
-                echo '📥 Récupération du code source depuis Git'
-                git branch: 'main', url: 'https://github.com/chaimamiled/student-management.git'
-            }
-        }
-
-        stage('Clean') {
-            steps {
-                echo '🧹 Nettoyage du dossier target'
-                sh 'rm -rf target/*'
+                git 'https://github.com/chaimamiled/student-management.git'
             }
         }
 
         stage('Build') {
             steps {
-                echo '🔨 Compilation et création du livrable'
-                sh 'mvn clean package -DskipTests=true'
+                sh 'mvn clean compile'
             }
         }
 
-        stage('Test') {
+        stage('SonarQube Analysis') {
             steps {
-                echo '✅ Exécution des tests unitaires'
-                sh 'mvn test'
+                sh "mvn sonar:sonar -Dsonar.host.url=http://192.168.50.4:9000 -Dsonar.login=$SONAR_TOKEN"
             }
         }
-
-        stage('Staging') {
-            steps {
-                echo '🚀 Déploiement staging (simulation)'
-                sh "mkdir -p /tmp/staging && cp target/${APP_NAME}-*.jar /tmp/staging/"
-            }
-        }
-
-        stage('Browser Testing') {
-            parallel {
-                stage('Firefox') {
-                    steps {
-                        echo '🦊 Tests sur Firefox (simulation)'
-                        sh 'echo "Tests Selenium sur Firefox"'
-                    }
-                }
-                stage('Edge') {
-                    steps {
-                        echo '🌐 Tests sur Edge (simulation)'
-                        sh 'echo "Tests Selenium sur Edge"'
-                    }
-                }
-            }
-        }
-    }
-
-    post {
-        success { echo '🎉 Pipeline terminé avec succès ✅' }
-        failure { echo '❌ Pipeline échoué ❌' }
     }
 }
