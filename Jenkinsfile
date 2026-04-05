@@ -2,26 +2,46 @@ pipeline {
     agent any
 
     environment {
-        SONAR_TOKEN = credentials('squ_696d38fe068dd19f95ced8b8001eb3d575c5c099') // ton token SonarQube
+        DOCKER_IMAGE = "tonuser/docker-nginx"
     }
 
     stages {
 
-        stage('Checkout') {
+        stage('Build Image') {
             steps {
-                git 'https://github.com/chaimamiled/student-management.git'
+                sh 'docker build -t $DOCKER_IMAGE .'
             }
         }
 
-        stage('Build') {
+        stage('Login DockerHub') {
             steps {
-                sh 'mvn clean compile'
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'USER',
+                    passwordVariable: 'PASS'
+                )]) {
+                    sh 'echo $PASS | docker login -u $USER --password-stdin'
+                }
             }
         }
 
-        stage('SonarQube Analysis') {
+        stage('Push Image') {
             steps {
-                sh "mvn sonar:sonar -Dsonar.host.url=http://192.168.50.4:9000 -Dsonar.login=$SONAR_TOKEN"
+                sh 'docker push $DOCKER_IMAGE'
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh 'kubectl apply -f deployment.yaml'
+                sh 'kubectl apply -f service.yaml'
+            }
+        }
+
+        stage('Verify') {
+            steps {
+                sh 'kubectl get pods'
+                sh 'kubectl get svc'
             }
         }
     }
